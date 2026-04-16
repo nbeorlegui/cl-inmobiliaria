@@ -14,15 +14,34 @@ import {
   updateEventInSheets,
 } from "@/lib/calendar-api";
 import { clearSessionUser, getSessionUser, type SessionUser } from "@/lib/auth";
+import { getCachedData, setCachedData } from "@/lib/view-cache";
 import { AppUser, CalendarEvent, EventFormValues } from "@/types/calendar";
-
-const WEEK_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const WEEK_DAYS_SHORT = ["L", "Ma", "Mi", "J", "V", "S", "D"];
+const MONTH_NAMES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sept",
+  "oct",
+  "nov",
+  "dic",
+];
 const ITEMS_PER_PAGE = 5;
 
 type ToastState = {
   open: boolean;
   message: string;
   tone: "success" | "error";
+};
+
+type CalendarCachePayload = {
+  users: AppUser[];
+  events: CalendarEvent[];
 };
 
 function getTypeChipClasses(type: CalendarEvent["type"]) {
@@ -269,7 +288,7 @@ function Toast({ open, message, tone }: ToastState) {
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-[120]">
       <div
-        className={`flex min-w-[280px] items-center gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.12)] ${toneClasses}`}
+        className={`flex min-w-[260px] items-center gap-3 rounded-2xl border px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.12)] ${toneClasses}`}
       >
         <span
           className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${iconClasses}`}
@@ -315,6 +334,10 @@ export default function CalendarioPage() {
     }, 2000);
   }
 
+  function getCalendarCacheKey(user: SessionUser) {
+    return `calendar:${user.id}:${user.rol}`;
+  }
+
   async function loadForSession(user: SessionUser) {
     setLoading(true);
 
@@ -337,6 +360,10 @@ export default function CalendarioPage() {
     }));
 
     setEvents(enriched);
+    setCachedData<CalendarCachePayload>(getCalendarCacheKey(user), {
+      users: rawUsers,
+      events: enriched,
+    });
     setLoading(false);
   }
 
@@ -354,6 +381,10 @@ export default function CalendarioPage() {
     }));
 
     setEvents(enriched);
+    setCachedData<CalendarCachePayload>(getCalendarCacheKey(user), {
+      users: baseUsers,
+      events: enriched,
+    });
   }
 
   useEffect(() => {
@@ -362,6 +393,15 @@ export default function CalendarioPage() {
     if (!session) {
       router.replace("/login");
       return;
+    }
+
+    const cache = getCachedData<CalendarCachePayload>(getCalendarCacheKey(session));
+    if (cache) {
+      setUsers(cache.users);
+      setEvents(cache.events);
+      setSessionUser(sessionToAppUser(session));
+      setSessionData(session);
+      setLoading(false);
     }
 
     loadForSession(session);
@@ -427,8 +467,13 @@ export default function CalendarioPage() {
     }
 
     const optimisticEvent = buildOptimisticEvent(values, sessionUser, users);
+    const optimisticEvents = [...events, optimisticEvent];
 
-    setEvents((prev) => [...prev, optimisticEvent]);
+    setEvents(optimisticEvents);
+    setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+      users,
+      events: optimisticEvents,
+    });
     setModalOpen(false);
     setSelectedEvent(null);
     showToast("Evento creado correctamente", "success");
@@ -457,7 +502,12 @@ export default function CalendarioPage() {
 
       await refreshEventsOnly(sessionData, users);
     } catch (error) {
-      setEvents((prev) => prev.filter((event) => event.id !== optimisticEvent.id));
+      const reverted = events;
+      setEvents(reverted);
+      setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+        users,
+        events: reverted,
+      });
       showToast(
         error instanceof Error ? error.message : "No se pudo guardar el evento",
         "error"
@@ -476,24 +526,28 @@ export default function CalendarioPage() {
     const previousEvents = events;
     const assignedUser = users.find((u) => u.id === values.assignedUserId);
 
-    setEvents((prev) =>
-      prev.map((event) =>
-        event.id === eventId
-          ? {
-              ...event,
-              title: values.title.trim(),
-              description: values.description.trim(),
-              date: values.date,
-              time: values.time,
-              type: values.type,
-              urgent: values.urgent,
-              assignedUserId: values.assignedUserId,
-              assignedUserName: assignedUser?.name || event.assignedUserName,
-              updatedAt: new Date().toISOString(),
-            }
-          : event
-      )
+    const optimisticEvents = previousEvents.map((event) =>
+      event.id === eventId
+        ? {
+            ...event,
+            title: values.title.trim(),
+            description: values.description.trim(),
+            date: values.date,
+            time: values.time,
+            type: values.type,
+            urgent: values.urgent,
+            assignedUserId: values.assignedUserId,
+            assignedUserName: assignedUser?.name || event.assignedUserName,
+            updatedAt: new Date().toISOString(),
+          }
+        : event
     );
+
+    setEvents(optimisticEvents);
+    setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+      users,
+      events: optimisticEvents,
+    });
 
     setModalOpen(false);
     setSelectedEvent(null);
@@ -518,6 +572,10 @@ export default function CalendarioPage() {
       await refreshEventsOnly(sessionData, users);
     } catch (error) {
       setEvents(previousEvents);
+      setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+        users,
+        events: previousEvents,
+      });
       showToast(
         error instanceof Error ? error.message : "No se pudo actualizar el evento",
         "error"
@@ -529,7 +587,14 @@ export default function CalendarioPage() {
     if (!sessionData) return;
 
     const previousEvents = events;
-    setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    const optimisticEvents = previousEvents.filter((event) => event.id !== eventId);
+
+    setEvents(optimisticEvents);
+    setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+      users,
+      events: optimisticEvents,
+    });
+
     setModalOpen(false);
     setSelectedEvent(null);
     showToast("Evento eliminado correctamente", "success");
@@ -544,6 +609,10 @@ export default function CalendarioPage() {
       await refreshEventsOnly(sessionData, users);
     } catch (error) {
       setEvents(previousEvents);
+      setCachedData<CalendarCachePayload>(getCalendarCacheKey(sessionData), {
+        users,
+        events: previousEvents,
+      });
       showToast(
         error instanceof Error ? error.message : "No se pudo eliminar el evento",
         "error"
@@ -556,13 +625,15 @@ export default function CalendarioPage() {
     router.replace("/login");
   }
 
+  const mobileMonthIndex = currentMonth.getMonth();
+
   return (
     <AppShell menu={APP_MENU}>
       <>
         <Toast {...toast} />
 
-        <div className="mb-3 rounded-[24px] border border-white/60 bg-white/85 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="mb-3 rounded-[24px] border border-white/60 bg-white/85 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-4">
+          <div className="hidden md:flex md:flex-col md:gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                 CL Inmobiliaria
@@ -598,26 +669,52 @@ export default function CalendarioPage() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700">
-              Visita
-            </span>
-            <span className="rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
-              Llamada
-            </span>
-            <span className="rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[10px] font-semibold text-cyan-700">
-              Reunión
-            </span>
-            <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700">
-              Tarea
-            </span>
-            <span className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600">
-              Urgente
-            </span>
+          <div className="md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-[1.7rem] font-semibold tracking-tight text-slate-900">
+                  {formatMonthYear(currentMonth)}
+                </h1>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => openCreateModal(todayYmd)}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-xl font-bold text-white shadow-[0_12px_26px_rgba(59,130,246,0.22)]"
+                aria-label="Agregar evento"
+              >
+                +
+              </button>
+            </div>
+
+            <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+              {MONTH_NAMES.map((month, index) => {
+                const isActive = index === mobileMonthIndex;
+
+                return (
+                  <button
+                    key={month}
+                    type="button"
+                    onClick={() =>
+                      setCurrentMonth(
+                        new Date(currentMonth.getFullYear(), index, 1)
+                      )
+                    }
+                    className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-blue-100 bg-blue-100 text-blue-900"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    {month}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="mb-3 grid gap-2.5 md:grid-cols-3">
+        <div className="mb-3 hidden gap-2.5 md:grid md:grid-cols-3">
           <div className="rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-500 p-3.5 text-white shadow-[0_10px_24px_rgba(37,99,235,0.16)]">
             <p className="text-[13px] font-medium text-white/80">Total de eventos</p>
             <p className="mt-1.5 text-[2rem] font-semibold">{totalEvents}</p>
@@ -639,8 +736,8 @@ export default function CalendarioPage() {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-white/60 bg-white/90 p-3.5 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:p-3.5">
+          <div className="mb-3 hidden md:flex md:flex-col md:gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -691,11 +788,123 @@ export default function CalendarioPage() {
             </button>
           </div>
 
-          {loading ? (
-            <div className="py-10 text-center text-sm text-slate-500">Cargando calendario...</div>
-          ) : (
+          <div className="md:hidden">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentMonth(
+                    new Date(
+                      currentMonth.getFullYear(),
+                      currentMonth.getMonth() - 1,
+                      1
+                    )
+                  )
+                }
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
+              >
+                ←
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentMonth(new Date())}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+              >
+                Hoy
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentMonth(
+                    new Date(
+                      currentMonth.getFullYear(),
+                      currentMonth.getMonth() + 1,
+                      1
+                    )
+                  )
+                }
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
+              >
+                →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 pb-1">
+              {WEEK_DAYS_SHORT.map((day) => (
+                <div
+                  key={day}
+                  className="py-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"
+                >
+                  {day}
+                </div>
+              ))}
+
+              {calendarDays.map(({ date, isCurrentMonth }) => {
+                const dateStr = toYmd(date);
+                const dayEvents = groupedEvents[dateStr] ?? [];
+                const visibleChips = dayEvents.slice(0, 2);
+                const isToday = dateStr === todayYmd;
+
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => {
+                      if (dayEvents.length > 0) {
+                        openEditModal(dayEvents[0]);
+                      } else {
+                        openCreateModal(dateStr);
+                      }
+                    }}
+                    className={`min-h-[96px] rounded-[16px] border p-1.5 text-left align-top ${
+                      isCurrentMonth
+                        ? "border-slate-200 bg-white"
+                        : "border-slate-100 bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    <div className="mb-1 flex justify-between">
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+                          isToday
+                            ? "bg-blue-600 text-white"
+                            : isCurrentMonth
+                            ? "bg-slate-100 text-slate-700"
+                            : "bg-white text-slate-400"
+                        }`}
+                      >
+                        {date.getDate()}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {visibleChips.map((event) => (
+                        <div
+                          key={event.id}
+                          className={`truncate rounded-md border px-1 py-0.5 text-[10px] font-semibold ${getTypeChipClasses(
+                            event.type
+                          )}`}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+
+                      {dayEvents.length > 2 && (
+                        <div className="text-center text-[10px] font-semibold text-slate-500">
+                          ...
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="hidden md:block">
             <div className="grid grid-cols-7 gap-2">
-              {WEEK_DAYS.map((day) => (
+              {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
                 <div
                   key={day}
                   className="rounded-xl bg-slate-50 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
@@ -788,10 +997,10 @@ export default function CalendarioPage() {
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="mt-3 rounded-[24px] border border-white/60 bg-white/90 p-3.5 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="mt-3 hidden rounded-[24px] border border-white/60 bg-white/90 p-3.5 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl md:block">
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -908,13 +1117,7 @@ export default function CalendarioPage() {
         <EventModal
           open={modalOpen}
           mode={modalMode}
-          users={
-            sessionUser?.role === "admin"
-              ? users
-              : sessionUser
-              ? [sessionUser]
-              : []
-          }
+          users={sessionUser?.role === "admin" ? users : sessionUser ? [sessionUser] : []}
           currentUser={sessionUser || { id: "", name: "", role: "seller" }}
           initialDate={selectedDate}
           event={selectedEvent}
