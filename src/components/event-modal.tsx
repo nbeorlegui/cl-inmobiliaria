@@ -30,7 +30,20 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) =>
   String(index).padStart(2, "0")
 );
 
-const MINUTE_OPTIONS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+const MINUTE_OPTIONS = [
+  "00",
+  "05",
+  "10",
+  "15",
+  "20",
+  "25",
+  "30",
+  "35",
+  "40",
+  "45",
+  "50",
+  "55",
+];
 
 const EMPTY_VALUES: EventFormValues = {
   title: "",
@@ -158,15 +171,15 @@ export default function EventModal({
 
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/45 backdrop-blur-[2px]">
-      <div className="flex min-h-screen items-end justify-center p-0 sm:items-start sm:p-4">
-        <div className="flex h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.18)] sm:h-auto sm:max-h-[88dvh] sm:rounded-[28px]">
-          <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-blue-50 px-4 py-4 sm:px-6 sm:py-5">
+      <div className="flex min-h-screen items-end justify-center sm:items-center">
+        <div className="flex h-[82dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.18)] sm:h-auto sm:max-h-[88dvh] sm:rounded-[28px]">
+          <div className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-blue-50 px-4 py-3 sm:px-6 sm:py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                   CL Inmobiliaria
                 </p>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900 sm:text-2xl">
+                <h2 className="mt-1 text-[1.05rem] font-semibold text-slate-900 sm:text-2xl">
                   {mode === "edit" ? "Editar evento" : "Nuevo evento"}
                 </h2>
               </div>
@@ -315,7 +328,7 @@ export default function EventModal({
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-4 sm:px-6">
+            <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3">
                 {mode === "edit" && event && (
                   <button

@@ -16,6 +16,7 @@ import {
 import { clearSessionUser, getSessionUser, type SessionUser } from "@/lib/auth";
 import { getCachedData, setCachedData } from "@/lib/view-cache";
 import { AppUser, CalendarEvent, EventFormValues } from "@/types/calendar";
+
 const WEEK_DAYS_SHORT = ["L", "Ma", "Mi", "J", "V", "S", "D"];
 const MONTH_NAMES = [
   "ene",
@@ -120,17 +121,6 @@ function formatMonthYear(date: Date) {
   return new Intl.DateTimeFormat("es-AR", {
     month: "long",
     year: "numeric",
-  }).format(date);
-}
-
-function formatDateLabel(dateStr: string) {
-  const date = parseSafeDate(dateStr);
-  if (!date) return "Fecha inválida";
-
-  return new Intl.DateTimeFormat("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
   }).format(date);
 }
 
@@ -426,12 +416,6 @@ export default function CalendarioPage() {
 
   const calendarDays = useMemo(() => getCalendarDays(currentMonth), [currentMonth]);
 
-  const todayYmd = toYmd(new Date());
-
-  const totalEvents = visibleEvents.length;
-  const todayEvents = visibleEvents.filter((event) => event.date === todayYmd).length;
-  const urgentEvents = visibleEvents.filter((event) => event.urgent).length;
-
   const totalPages = Math.max(1, Math.ceil(visibleEvents.length / ITEMS_PER_PAGE));
   const paginatedEvents = visibleEvents.slice(
     (tablePage - 1) * ITEMS_PER_PAGE,
@@ -632,8 +616,8 @@ export default function CalendarioPage() {
       <>
         <Toast {...toast} />
 
-        <div className="mb-3 rounded-[24px] border border-white/60 bg-white/85 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-4">
-          <div className="hidden md:flex md:flex-col md:gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="mb-3 hidden rounded-[24px] border border-white/60 bg-white/85 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl md:block">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                 CL Inmobiliaria
@@ -653,14 +637,6 @@ export default function CalendarioPage() {
 
               <button
                 type="button"
-                onClick={() => openCreateModal(todayYmd)}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-[13px] font-semibold text-white shadow-[0_12px_26px_rgba(59,130,246,0.22)] transition hover:scale-[1.01]"
-              >
-                + Nuevo evento
-              </button>
-
-              <button
-                type="button"
                 onClick={handleLogout}
                 className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
               >
@@ -668,340 +644,129 @@ export default function CalendarioPage() {
               </button>
             </div>
           </div>
-
-          <div className="md:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h1 className="text-[1.7rem] font-semibold tracking-tight text-slate-900">
-                  {formatMonthYear(currentMonth)}
-                </h1>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openCreateModal(todayYmd)}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 text-xl font-bold text-white shadow-[0_12px_26px_rgba(59,130,246,0.22)]"
-                aria-label="Agregar evento"
-              >
-                +
-              </button>
-            </div>
-
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-              {MONTH_NAMES.map((month, index) => {
-                const isActive = index === mobileMonthIndex;
-
-                return (
-                  <button
-                    key={month}
-                    type="button"
-                    onClick={() =>
-                      setCurrentMonth(
-                        new Date(currentMonth.getFullYear(), index, 1)
-                      )
-                    }
-                    className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-medium transition ${
-                      isActive
-                        ? "border-blue-100 bg-blue-100 text-blue-900"
-                        : "border-slate-300 bg-white text-slate-700"
-                    }`}
-                  >
-                    {month}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
-        <div className="mb-3 hidden gap-2.5 md:grid md:grid-cols-3">
-          <div className="rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-500 p-3.5 text-white shadow-[0_10px_24px_rgba(37,99,235,0.16)]">
-            <p className="text-[13px] font-medium text-white/80">Total de eventos</p>
-            <p className="mt-1.5 text-[2rem] font-semibold">{totalEvents}</p>
-            <p className="mt-1 text-[12px] text-white/80">Eventos visibles</p>
+        <div className="mb-2 md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-[1.05rem] font-semibold capitalize text-slate-900">
+              {formatMonthYear(currentMonth)}
+            </h1>
+
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600">
+              {sessionUser?.name || ""}
+            </div>
           </div>
 
-          <div className="rounded-[20px] bg-gradient-to-r from-violet-600 to-fuchsia-500 p-3.5 text-white shadow-[0_10px_24px_rgba(139,92,246,0.18)]">
-            <p className="text-[13px] font-medium text-white/80">
-              Eventos para hoy {formatShortDate(todayYmd)}
-            </p>
-            <p className="mt-1.5 text-[2rem] font-semibold">{todayEvents}</p>
-            <p className="mt-1 text-[12px] text-white/80">Acciones del día</p>
-          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {MONTH_NAMES.map((month, index) => {
+              const isActive = index === mobileMonthIndex;
 
-          <div className="rounded-[20px] bg-gradient-to-r from-cyan-500 to-sky-500 p-3.5 text-white shadow-[0_10px_24px_rgba(14,165,233,0.16)]">
-            <p className="text-[13px] font-medium text-white/80">Urgentes</p>
-            <p className="mt-1.5 text-[2rem] font-semibold">{urgentEvents}</p>
-            <p className="mt-1 text-[12px] text-white/80">Prioridad alta</p>
-          </div>
-        </div>
-
-        <div className="rounded-[24px] border border-white/60 bg-white/90 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:p-3.5">
-          <div className="mb-3 hidden md:flex md:flex-col md:gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.getFullYear(),
-                      currentMonth.getMonth() - 1,
-                      1
+              return (
+                <button
+                  key={month}
+                  type="button"
+                  onClick={() =>
+                    setCurrentMonth(
+                      new Date(currentMonth.getFullYear(), index, 1)
                     )
-                  )
-                }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-              >
-                ←
-              </button>
+                  }
+                  className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? "border-blue-100 bg-blue-100 text-blue-900"
+                      : "border-slate-300 bg-white text-slate-700"
+                  }`}
+                >
+                  {month}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
+        <div className="rounded-[24px] border border-white/60 bg-white/90 p-2 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-3.5">
+          <div className="hidden md:block">
+            <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-[1.7rem] font-semibold capitalize text-slate-900">
                   {formatMonthYear(currentMonth)}
                 </h2>
                 <p className="text-[13px] text-slate-500">Vista mensual del equipo</p>
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.getFullYear(),
-                      currentMonth.getMonth() + 1,
-                      1
-                    )
-                  )
-                }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-              >
-                →
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setCurrentMonth(new Date())}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              Hoy
-            </button>
-          </div>
-
-          <div className="md:hidden">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.getFullYear(),
-                      currentMonth.getMonth() - 1,
-                      1
-                    )
-                  )
-                }
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
-              >
-                ←
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCurrentMonth(new Date())}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
-              >
-                Hoy
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentMonth(
-                    new Date(
-                      currentMonth.getFullYear(),
-                      currentMonth.getMonth() + 1,
-                      1
-                    )
-                  )
-                }
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700"
-              >
-                →
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 pb-1">
-              {WEEK_DAYS_SHORT.map((day) => (
-                <div
-                  key={day}
-                  className="py-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"
-                >
-                  {day}
-                </div>
-              ))}
-
-              {calendarDays.map(({ date, isCurrentMonth }) => {
-                const dateStr = toYmd(date);
-                const dayEvents = groupedEvents[dateStr] ?? [];
-                const visibleChips = dayEvents.slice(0, 2);
-                const isToday = dateStr === todayYmd;
-
-                return (
-                  <button
-                    key={dateStr}
-                    type="button"
-                    onClick={() => {
-                      if (dayEvents.length > 0) {
-                        openEditModal(dayEvents[0]);
-                      } else {
-                        openCreateModal(dateStr);
-                      }
-                    }}
-                    className={`min-h-[96px] rounded-[16px] border p-1.5 text-left align-top ${
-                      isCurrentMonth
-                        ? "border-slate-200 bg-white"
-                        : "border-slate-100 bg-slate-50 text-slate-400"
-                    }`}
-                  >
-                    <div className="mb-1 flex justify-between">
-                      <span
-                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
-                          isToday
-                            ? "bg-blue-600 text-white"
-                            : isCurrentMonth
-                            ? "bg-slate-100 text-slate-700"
-                            : "bg-white text-slate-400"
-                        }`}
-                      >
-                        {date.getDate()}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      {visibleChips.map((event) => (
-                        <div
-                          key={event.id}
-                          className={`truncate rounded-md border px-1 py-0.5 text-[10px] font-semibold ${getTypeChipClasses(
-                            event.type
-                          )}`}
-                        >
-                          {event.title}
-                        </div>
-                      ))}
-
-                      {dayEvents.length > 2 && (
-                        <div className="text-center text-[10px] font-semibold text-slate-500">
-                          ...
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
             </div>
           </div>
 
-          <div className="hidden md:block">
-            <div className="grid grid-cols-7 gap-2">
-              {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
-                <div
-                  key={day}
-                  className="rounded-xl bg-slate-50 px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
+          <div className="grid grid-cols-7 gap-[1px] rounded-[18px] bg-slate-200 overflow-hidden">
+            {WEEK_DAYS_SHORT.map((day) => (
+              <div
+                key={day}
+                className="bg-white py-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400"
+              >
+                {day}
+              </div>
+            ))}
+
+            {calendarDays.map(({ date, isCurrentMonth }) => {
+              const dateStr = toYmd(date);
+              const dayEvents = groupedEvents[dateStr] ?? [];
+              const visibleChips = dayEvents.slice(0, 3);
+              const isToday = dateStr === toYmd(new Date());
+
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  onClick={() => {
+                    if (dayEvents.length > 0) {
+                      openEditModal(dayEvents[0]);
+                    } else {
+                      openCreateModal(dateStr);
+                    }
+                  }}
+                  className={`min-h-[92px] bg-white px-1 py-1.5 text-left align-top md:min-h-[104px] ${
+                    !isCurrentMonth ? "text-slate-400" : ""
+                  }`}
                 >
-                  {day}
-                </div>
-              ))}
+                  <div className="mb-1 flex justify-between">
+                    <span
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+                        isToday
+                          ? "bg-blue-600 text-white"
+                          : isCurrentMonth
+                          ? "bg-slate-100 text-slate-700"
+                          : "bg-slate-50 text-slate-400"
+                      }`}
+                    >
+                      {date.getDate()}
+                    </span>
+                  </div>
 
-              {calendarDays.map(({ date, isCurrentMonth }) => {
-                const dateStr = toYmd(date);
-                const dayEvents = groupedEvents[dateStr] ?? [];
-                const visibleChips = dayEvents.slice(0, 2);
-                const extraCount = Math.max(dayEvents.length - 2, 0);
-                const isToday = dateStr === todayYmd;
-
-                return (
-                  <div
-                    key={dateStr}
-                    onClick={() => openCreateModal(dateStr)}
-                    className={`group relative min-h-[104px] cursor-pointer rounded-[18px] border p-2 text-left transition ${
-                      isCurrentMonth
-                        ? "border-slate-200 bg-white hover:border-blue-200 hover:shadow-[0_10px_22px_rgba(15,23,42,0.05)]"
-                        : "border-slate-100 bg-slate-50/80 text-slate-400 hover:border-slate-200"
-                    }`}
-                  >
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span
-                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold ${
-                          isToday
-                            ? "bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-lg"
-                            : isCurrentMonth
-                            ? "bg-slate-100 text-slate-700"
-                            : "bg-white text-slate-400"
-                        }`}
+                  <div className="space-y-1">
+                    {visibleChips.map((event) => (
+                      <div
+                        key={event.id}
+                        className={`truncate rounded-[4px] border px-1 py-[1px] text-[9px] font-semibold md:text-[10px] ${getTypeChipClasses(
+                          event.type
+                        )}`}
+                        title={event.title}
                       >
-                        {date.getDate()}
-                      </span>
+                        {event.title}
+                      </div>
+                    ))}
 
-                      {dayEvents.length > 0 && (
-                        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
-                          {dayEvents.length}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      {visibleChips.map((event) => (
-                        <button
-                          key={event.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(event);
-                          }}
-                          className={`block w-full rounded-md border px-1.5 py-1 text-left text-[9px] font-semibold shadow-sm transition hover:opacity-90 ${getTypeChipClasses(
-                            event.type
-                          )}`}
-                        >
-                          <div className="truncate">
-                            {event.time ? `${event.time} · ` : ""}
-                            {event.title}
-                          </div>
-                        </button>
-                      ))}
-
-                      {extraCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPopoverDate(dateStr);
-                            setPopoverAnchorRect(
-                              (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
-                            );
-                            setPopoverOpen(true);
-                          }}
-                          className="inline-flex w-full items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 px-1.5 py-1 text-[9px] font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50"
-                        >
-                          + {extraCount} más
-                        </button>
-                      )}
-                    </div>
-
-                    {dayEvents.length === 0 && (
-                      <div className="absolute inset-x-2 bottom-2 rounded-md border border-dashed border-transparent px-1.5 py-1 text-[9px] text-slate-300 opacity-0 transition group-hover:border-slate-200 group-hover:bg-slate-50/80 group-hover:opacity-100">
-                        Click para crear evento
+                    {dayEvents.length > 3 && (
+                      <div className="px-1 text-[10px] font-semibold text-slate-500">
+                        +{dayEvents.length - 3}
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="mt-3 hidden rounded-[24px] border border-white/60 bg-white/90 p-3.5 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl md:block">
-          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                 Listado de eventos
@@ -1009,9 +774,6 @@ export default function CalendarioPage() {
               <h3 className="mt-1 text-lg font-semibold text-slate-900">
                 Todos los eventos
               </h3>
-              <p className="mt-1 text-[13px] text-slate-500">
-                Vista tabular con paginado de 5 registros.
-              </p>
             </div>
 
             <div className="text-[13px] text-slate-500">
@@ -1088,31 +850,16 @@ export default function CalendarioPage() {
               ))
             )}
           </div>
-
-          <div className="mt-3 flex items-center justify-between">
-            <button
-              type="button"
-              disabled={tablePage === 1}
-              onClick={() => setTablePage((prev) => Math.max(1, prev - 1))}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-
-            <div className="text-[13px] text-slate-500">
-              {visibleEvents.length} registros totales
-            </div>
-
-            <button
-              type="button"
-              disabled={tablePage === totalPages}
-              onClick={() => setTablePage((prev) => Math.min(totalPages, prev + 1))}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
-          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => openCreateModal(toYmd(new Date()))}
+          className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-violet-600 text-2xl font-semibold text-white shadow-[0_18px_40px_rgba(59,130,246,0.35)] md:hidden"
+          aria-label="Agregar evento"
+        >
+          +
+        </button>
 
         <EventModal
           open={modalOpen}
@@ -1133,7 +880,7 @@ export default function CalendarioPage() {
         <DayEventsPopover
           open={popoverOpen}
           anchorRect={popoverAnchorRect}
-          dateLabel={popoverDate ? formatDateLabel(popoverDate) : ""}
+          dateLabel=""
           events={popoverDate ? groupedEvents[popoverDate] ?? [] : []}
           onClose={() => setPopoverOpen(false)}
           onOpenEvent={openEditModal}
