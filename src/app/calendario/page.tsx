@@ -428,19 +428,31 @@ export default function CalendarioPage() {
     }
   }, [tablePage, totalPages]);
 
-  function openCreateModal(date: string) {
-    setSelectedDate(date);
-    setSelectedEvent(null);
-    setModalMode("create");
-    setModalOpen(true);
-  }
+function openCreateModal(date: string) {
+  setPopoverOpen(false);
+  setPopoverDate("");
+  setPopoverAnchorRect(null);
+  setSelectedDate(date);
+  setSelectedEvent(null);
+  setModalMode("create");
+  setModalOpen(true);
+}
 
-  function openEditModal(event: CalendarEvent) {
-    setSelectedDate(event.date);
-    setSelectedEvent(event);
-    setModalMode("edit");
-    setModalOpen(true);
-  }
+function openEditModal(event: CalendarEvent) {
+  setPopoverOpen(false);
+  setPopoverDate("");
+  setPopoverAnchorRect(null);
+  setSelectedDate(event.date);
+  setSelectedEvent(event);
+  setModalMode("edit");
+  setModalOpen(true);
+}
+
+function openDayEventsPopover(date: string, anchorRect: DOMRect) {
+  setPopoverDate(date);
+  setPopoverAnchorRect(anchorRect);
+  setPopoverOpen(true);
+}
 
   async function handleCreate(values: EventFormValues) {
     if (!sessionUser || !sessionData) return;
@@ -685,13 +697,21 @@ export default function CalendarioPage() {
 
         <div className="rounded-[24px] border border-white/60 bg-white/90 p-2 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-3.5">
           <div className="hidden md:block">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[1.7rem] font-semibold capitalize text-slate-900">
                   {formatMonthYear(currentMonth)}
                 </h2>
                 <p className="text-[13px] text-slate-500">Vista mensual del equipo</p>
               </div>
+
+              <button
+                type="button"
+                onClick={() => openCreateModal(toYmd(new Date()))}
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_28px_rgba(59,130,246,0.25)] transition hover:opacity-95"
+              >
+                Nuevo evento
+              </button>
             </div>
           </div>
 
@@ -705,63 +725,77 @@ export default function CalendarioPage() {
               </div>
             ))}
 
-            {calendarDays.map(({ date, isCurrentMonth }) => {
-              const dateStr = toYmd(date);
-              const dayEvents = groupedEvents[dateStr] ?? [];
-              const visibleChips = dayEvents.slice(0, 3);
-              const isToday = dateStr === toYmd(new Date());
+           {calendarDays.map(({ date, isCurrentMonth }) => {
+  const dateStr = toYmd(date);
+  const dayEvents = groupedEvents[dateStr] ?? [];
+  const visibleChips = dayEvents.slice(0, 3);
+  const hiddenCount = Math.max(0, dayEvents.length - visibleChips.length);
+  const isToday = dateStr === toYmd(new Date());
 
-              return (
-                <button
-                  key={dateStr}
-                  type="button"
-                  onClick={() => {
-                    if (dayEvents.length > 0) {
-                      openEditModal(dayEvents[0]);
-                    } else {
-                      openCreateModal(dateStr);
-                    }
-                  }}
-                  className={`min-h-[92px] bg-white px-1 py-1.5 text-left align-top md:min-h-[104px] ${
-                    !isCurrentMonth ? "text-slate-400" : ""
-                  }`}
-                >
-                  <div className="mb-1 flex justify-between">
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
-                        isToday
-                          ? "bg-blue-600 text-white"
-                          : isCurrentMonth
-                          ? "bg-slate-100 text-slate-700"
-                          : "bg-slate-50 text-slate-400"
-                      }`}
-                    >
-                      {date.getDate()}
-                    </span>
-                  </div>
+  return (
+    <div
+      key={dateStr}
+      role="button"
+      tabIndex={0}
+      onClick={() => openCreateModal(dateStr)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openCreateModal(dateStr);
+        }
+      }}
+      className={`min-h-[92px] bg-white px-1 py-1.5 text-left align-top md:min-h-[104px] ${
+        !isCurrentMonth ? "text-slate-400" : ""
+      }`}
+    >
+      <div className="mb-1 flex justify-between">
+        <span
+          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+            isToday
+              ? "bg-blue-600 text-white"
+              : isCurrentMonth
+              ? "bg-slate-100 text-slate-700"
+              : "bg-slate-50 text-slate-400"
+          }`}
+        >
+              {date.getDate()}
+            </span>
+          </div>
 
-                  <div className="space-y-1">
-                    {visibleChips.map((event) => (
-                      <div
-                        key={event.id}
-                        className={`truncate rounded-[4px] border px-1 py-[1px] text-[9px] font-semibold md:text-[10px] ${getTypeChipClasses(
-                          event.type
-                        )}`}
-                        title={event.title}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
+          <div className="space-y-1">
+            {visibleChips.map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditModal(event);
+                }}
+                className={`block w-full truncate rounded-[4px] border px-1 py-[1px] text-left text-[9px] font-semibold md:text-[10px] ${getTypeChipClasses(
+                  event.type
+                )}`}
+                title={event.title}
+              >
+                {event.title}
+              </button>
+            ))}
 
-                    {dayEvents.length > 3 && (
-                      <div className="px-1 text-[10px] font-semibold text-slate-500">
-                        +{dayEvents.length - 3}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openDayEventsPopover(dateStr, e.currentTarget.getBoundingClientRect());
+                }}
+                className="px-1 text-[10px] font-semibold text-slate-500 transition hover:text-slate-700"
+              >
+                +{hiddenCount} más
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    })}
           </div>
         </div>
 
@@ -877,10 +911,10 @@ export default function CalendarioPage() {
           onDelete={handleDelete}
         />
 
-        <DayEventsPopover
+       <DayEventsPopover
           open={popoverOpen}
           anchorRect={popoverAnchorRect}
-          dateLabel=""
+          dateLabel={popoverDate ? formatShortDate(popoverDate) : ""}
           events={popoverDate ? groupedEvents[popoverDate] ?? [] : []}
           onClose={() => setPopoverOpen(false)}
           onOpenEvent={openEditModal}
