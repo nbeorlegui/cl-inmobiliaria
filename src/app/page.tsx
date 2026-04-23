@@ -111,6 +111,9 @@ export default function HomePage() {
   });
 
   const [actions, setActions] = useState<DashboardAction[]>([]);
+  const [myAgendaOpen, setMyAgendaOpen] = useState(true);
+  const [teamAgendaOpen, setTeamAgendaOpen] = useState(false);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   useEffect(() => {
     const currentSession = getSessionUser();
@@ -289,8 +292,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[1.65fr_1fr]">
-          <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="grid items-start gap-3 xl:grid-cols-[1.65fr_1fr]">
+          <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl self-start">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -307,29 +310,57 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-3">
-              {!loading && myActiveActions.length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                  No hay acciones vigentes para mostrar.
-                </div>
-              ) : (
-                myActiveActions.map((action) => renderActionCard(action, false))
+              <button
+                type="button"
+                onClick={() => setMyAgendaOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+              >
+                <span className="text-sm font-semibold text-slate-700">
+                  Vigentes ({myActiveActions.length})
+                </span>
+                <span className="text-lg leading-none text-slate-500">
+                  {myAgendaOpen ? "−" : "+"}
+                </span>
+              </button>
+
+              {myAgendaOpen && (
+                <>
+                  {!loading && myActiveActions.length === 0 ? (
+                    <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                      No hay acciones vigentes para mostrar.
+                    </div>
+                  ) : (
+                    myActiveActions.map((action) => renderActionCard(action, false))
+                  )}
+                </>
               )}
 
-              {!loading && myExpiredActions.length > 0 && (
-                <details className="mt-4 overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50/80">
-                  <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-700">
-                    Vencidos ({myExpiredActions.length})
-                  </summary>
+              {myExpiredActions.length > 0 && (
+                <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50/80">
+                  <button
+                    type="button"
+                    onClick={() => setExpiredOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                  >
+                    <span className="text-sm font-semibold text-slate-700">
+                      Vencidos ({myExpiredActions.length})
+                    </span>
+                    <span className="text-lg leading-none text-slate-500">
+                      {expiredOpen ? "−" : "+"}
+                    </span>
+                  </button>
 
-                  <div className="space-y-3 border-t border-slate-200 p-3">
-                    {myExpiredActions.map((action) => renderActionCard(action, false))}
-                  </div>
-                </details>
+                  {expiredOpen && (
+                    <div className="space-y-3 border-t border-slate-200 p-3">
+                      {myExpiredActions.map((action) => renderActionCard(action, false))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+          <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl self-start">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -346,12 +377,29 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-3">
-              {!loading && teamActions.length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                  No hay acciones del resto del equipo.
-                </div>
-              ) : (
-                teamActions.map((action) => renderActionCard(action, true))
+              <button
+                type="button"
+                onClick={() => setTeamAgendaOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+              >
+                <span className="text-sm font-semibold text-slate-700">
+                  Ver resto del equipo ({teamActions.length})
+                </span>
+                <span className="text-lg leading-none text-slate-500">
+                  {teamAgendaOpen ? "−" : "+"}
+                </span>
+              </button>
+
+              {teamAgendaOpen && (
+                <>
+                  {!loading && teamActions.length === 0 ? (
+                    <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                      No hay acciones del resto del equipo.
+                    </div>
+                  ) : (
+                    teamActions.map((action) => renderActionCard(action, true))
+                  )}
+                </>
               )}
             </div>
           </div>
