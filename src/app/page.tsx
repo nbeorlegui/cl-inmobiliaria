@@ -267,7 +267,7 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="mb-3 grid gap-2.5 md:grid-cols-4">
+        <div className="mb-3 hidden gap-2.5 md:grid md:grid-cols-4">
           <div className="rounded-[20px] bg-gradient-to-r from-blue-600 to-blue-500 p-3.5 text-white shadow-[0_10px_24px_rgba(37,99,235,0.16)]">
             <p className="text-[13px] font-medium text-white/80">{labels.properties}</p>
             <p className="mt-1.5 text-[2rem] font-semibold">{summary.totalProperties}</p>
