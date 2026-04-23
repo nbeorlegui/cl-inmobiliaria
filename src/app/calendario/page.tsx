@@ -658,42 +658,52 @@ function openDayEventsPopover(date: string, anchorRect: DOMRect) {
           </div>
         </div>
 
-        <div className="mb-2 md:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-[1.05rem] font-semibold capitalize text-slate-900">
-              {formatMonthYear(currentMonth)}
-            </h1>
+<div className="mb-2 md:hidden">
+  <div className="flex items-start justify-between gap-3">
+    <div>
+      <h1 className="text-[1.05rem] font-semibold capitalize text-slate-900">
+        {formatMonthYear(currentMonth)}
+      </h1>
 
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600">
-              {sessionUser?.name || ""}
-            </div>
-          </div>
+      <div className="mt-2 inline-flex rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600">
+        {sessionUser?.name || ""}
+      </div>
+    </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {MONTH_NAMES.map((month, index) => {
-              const isActive = index === mobileMonthIndex;
+    <button
+      type="button"
+      onClick={handleLogout}
+      className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-700 transition hover:bg-slate-50"
+    >
+      Cerrar sesión
+    </button>
+  </div>
 
-              return (
-                <button
-                  key={month}
-                  type="button"
-                  onClick={() =>
-                    setCurrentMonth(
-                      new Date(currentMonth.getFullYear(), index, 1)
-                    )
-                  }
-                  className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border-blue-100 bg-blue-100 text-blue-900"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
-                >
-                  {month}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+    {MONTH_NAMES.map((month, index) => {
+      const isActive = index === mobileMonthIndex;
+
+      return (
+        <button
+          key={month}
+          type="button"
+          onClick={() =>
+            setCurrentMonth(
+              new Date(currentMonth.getFullYear(), index, 1)
+            )
+          }
+          className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-medium transition ${
+            isActive
+              ? "border-blue-100 bg-blue-100 text-blue-900"
+              : "border-slate-300 bg-white text-slate-700"
+          }`}
+        >
+          {month}
+        </button>
+      );
+    })}
+  </div>
+</div>
 
         <div className="rounded-[24px] border border-white/60 bg-white/90 p-2 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl md:p-3.5">
           <div className="hidden md:block">

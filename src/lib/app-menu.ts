@@ -1,7 +1,7 @@
 import type { MenuItem } from "@/types";
 
 export const APP_MENU: MenuItem[] = [
-  { label: "Dashboard", href: "/" },
+  { label: "Inicio", href: "/" },
   { label: "Propiedades", href: "/propiedades" },
   { label: "Contactos", href: "/contactos" },
   { label: "Acciones", href: "/acciones" },

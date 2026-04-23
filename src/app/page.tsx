@@ -77,6 +77,24 @@ function getKpiText(role: string) {
         propertiesTitle: "Mis propiedades asignadas",
       };
 }
+function parseActionDateTime(action: DashboardAction) {
+  if (!action.date) return null;
+
+  const datePart = action.date.trim();
+  const timePart =
+    action.time && /^\d{2}:\d{2}$/.test(action.time.trim())
+      ? action.time.trim()
+      : "23:59";
+
+  const parsed = new Date(`${datePart}T${timePart}:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isActionExpired(action: DashboardAction) {
+  const actionDate = parseActionDateTime(action);
+  if (!actionDate) return false;
+  return actionDate.getTime() < Date.now();
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -154,6 +172,9 @@ const currentUserName = session.nombre_apellido.trim().toLowerCase();
 const myActions = actions.filter(
   (action) => (action.assignedUserName || "").trim().toLowerCase() === currentUserName
 );
+
+const myActiveActions = myActions.filter((action) => !isActionExpired(action));
+const myExpiredActions = myActions.filter((action) => isActionExpired(action));
 
 const teamActions = actions.filter(
   (action) => (action.assignedUserName || "").trim().toLowerCase() !== currentUserName
@@ -284,17 +305,29 @@ function handleLogout() {
         </div>
 
         <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
-          {loading ? "Cargando..." : `${myActions.length} acciones`}
+          {loading ? "Cargando..." : `${myActiveActions.length} acciones`}
         </span>
       </div>
 
       <div className="space-y-3">
-        {!loading && myActions.length === 0 ? (
+        {!loading && myActiveActions.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-            No hay acciones tuyas para mostrar.
+            No hay acciones vigentes para mostrar.
           </div>
         ) : (
-          myActions.map((action) => renderActionCard(action, false))
+          myActiveActions.map((action) => renderActionCard(action, false))
+        )}
+
+        {!loading && myExpiredActions.length > 0 && (
+          <details className="mt-4 overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50/80">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-700">
+              Vencidos ({myExpiredActions.length})
+            </summary>
+
+            <div className="space-y-3 border-t border-slate-200 p-3">
+              {myExpiredActions.map((action) => renderActionCard(action, false))}
+            </div>
+          </details>
         )}
       </div>
     </div>
