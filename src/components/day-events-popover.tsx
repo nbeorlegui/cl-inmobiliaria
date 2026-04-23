@@ -1,7 +1,7 @@
 "use client";
 
-import { CalendarEvent } from "@/types/calendar";
-import { buildEventTypeLabel } from "@/lib/calendar-store";
+import { useEffect } from "react";
+import type { CalendarEvent } from "@/types/calendar";
 
 type DayEventsPopoverProps = {
   open: boolean;
@@ -12,117 +12,137 @@ type DayEventsPopoverProps = {
   onOpenEvent: (event: CalendarEvent) => void;
 };
 
-function getTypeClasses(type: CalendarEvent["type"]) {
+function getTypeLabel(type: CalendarEvent["type"]) {
   switch (type) {
     case "visita":
-      return "bg-blue-50 text-blue-700 border-blue-100";
+      return "Visita";
     case "llamada":
-      return "bg-violet-50 text-violet-700 border-violet-100";
+      return "Llamada";
     case "reunion":
-      return "bg-cyan-50 text-cyan-700 border-cyan-100";
+      return "Reunión";
     case "tarea":
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "Tarea";
     default:
-      return "bg-indigo-50 text-indigo-700 border-indigo-100";
+      return "Acción";
+  }
+}
+
+function getTypeBadgeClasses(type: CalendarEvent["type"]) {
+  switch (type) {
+    case "visita":
+      return "border-blue-100 bg-blue-50 text-blue-700";
+    case "llamada":
+      return "border-violet-100 bg-violet-50 text-violet-700";
+    case "reunion":
+      return "border-cyan-100 bg-cyan-50 text-cyan-700";
+    case "tarea":
+      return "border-slate-200 bg-slate-100 text-slate-700";
+    default:
+      return "border-indigo-100 bg-indigo-50 text-indigo-700";
   }
 }
 
 export default function DayEventsPopover({
   open,
-  anchorRect,
   dateLabel,
   events,
   onClose,
   onOpenEvent,
 }: DayEventsPopoverProps) {
-  if (!open || !anchorRect) return null;
+  useEffect(() => {
+    if (!open) return;
 
-  const top = anchorRect.bottom + window.scrollY + 8;
-  const left = Math.min(
-    anchorRect.left + window.scrollX,
-    window.innerWidth - 360
-  );
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
 
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Cerrar"
-        onClick={onClose}
-        className="fixed inset-0 z-[58] cursor-default bg-transparent"
-      />
+    <div
+      className="fixed inset-0 z-[120] bg-slate-950/35 backdrop-blur-[1px]"
+      onClick={onClose}
+    >
+      <div className="flex min-h-full items-center justify-center p-4 md:p-6">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-sm overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.20)] md:max-w-md"
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Eventos del día
+              </p>
+              <h3 className="mt-1 text-[1.1rem] font-semibold text-slate-900">
+                {dateLabel || "Eventos"}
+              </h3>
+            </div>
 
-      <div
-        className="absolute z-[60] w-[340px] rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_30px_80px_rgba(15,23,42,0.16)]"
-        style={{ top, left }}
-      >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Eventos del día
-            </p>
-            <h3 className="mt-1 text-base font-semibold text-slate-900">
-              {dateLabel}
-            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+              aria-label="Cerrar"
+            >
+              ✕
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
-          {events.map((event) => (
-            <button
-              key={event.id}
-              type="button"
-              onClick={() => {
-                onOpenEvent(event);
-                onClose();
-              }}
-              className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50/40"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {event.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {event.time ? `${event.time} · ` : ""}
-                    {event.assignedUserName}
-                  </p>
+          <div className="max-h-[62dvh] overflow-y-auto p-3 md:max-h-[70dvh]">
+            <div className="space-y-3">
+              {events.length === 0 ? (
+                <div className="rounded-[18px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                  No hay eventos para este día.
                 </div>
+              ) : (
+                events.map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => onOpenEvent(event)}
+                    className="block w-full rounded-[18px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[1rem] font-semibold text-slate-900">
+                          {event.title}
+                        </p>
+                        <p className="mt-1 text-[12px] text-slate-500">
+                          {event.time || "--:--"} · {event.assignedUserName || "Sin asignar"}
+                        </p>
+                      </div>
 
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getTypeClasses(
-                    event.type
-                  )}`}
-                >
-                  {buildEventTypeLabel(event.type)}
-                </span>
-              </div>
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${getTypeBadgeClasses(
+                          event.type
+                        )}`}
+                      >
+                        {getTypeLabel(event.type)}
+                      </span>
+                    </div>
 
-              {event.description && (
-                <p className="mt-2 line-clamp-2 text-xs text-slate-500">
-                  {event.description}
-                </p>
+                    {event.description ? (
+                      <p className="mt-3 text-sm leading-6 text-slate-600">
+                        {event.description}
+                      </p>
+                    ) : null}
+                  </button>
+                ))
               )}
-
-              {event.urgent && (
-                <div className="mt-2">
-                  <span className="rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600">
-                    Urgente
-                  </span>
-                </div>
-              )}
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
