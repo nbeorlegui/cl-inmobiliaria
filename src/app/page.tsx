@@ -8,7 +8,6 @@ import { clearSessionUser, getSessionUser, type SessionUser } from "@/lib/auth";
 import {
   getDashboardDataFromSheets,
   type DashboardAction,
-  type DashboardProperty,
   type DashboardSummary,
 } from "@/lib/calendar-api";
 
@@ -64,8 +63,6 @@ function getKpiText(role: string) {
         events: "Eventos de hoy",
         urgent: "Urgentes",
         upcoming: "Próximos a vencer",
-        actionsTitle: "Acciones del equipo",
-        propertiesTitle: "Propiedades recientes",
       }
     : {
         title: "Vista personal con acceso solo a tus módulos asignados.",
@@ -73,10 +70,9 @@ function getKpiText(role: string) {
         events: "Eventos de hoy",
         urgent: "Urgentes",
         upcoming: "Próximos a vencer",
-        actionsTitle: "Mis acciones",
-        propertiesTitle: "Mis propiedades asignadas",
       };
 }
+
 function normalizeDateOnly(value?: string | null) {
   if (!value) return null;
 
@@ -115,127 +111,125 @@ export default function HomePage() {
   });
 
   const [actions, setActions] = useState<DashboardAction[]>([]);
-  const [properties, setProperties] = useState<DashboardProperty[]>([]);
 
-useEffect(() => {
-  const currentSession = getSessionUser();
+  useEffect(() => {
+    const currentSession = getSessionUser();
 
-  if (!currentSession) {
-    router.replace("/login");
-    return;
-  }
-
-  const userId: string = currentSession.id;
-  const userRole: string = currentSession.rol;
-
-  setSession(currentSession);
-
-  async function loadDashboard() {
-    try {
-      setFetchError("");
-
-      const res = await getDashboardDataFromSheets(userId, userRole);
-
-      if (!res.ok) {
-        throw new Error(res.error || "No se pudo cargar el dashboard");
-      }
-
-      setSummary(
-        res.summary || {
-          totalProperties: 0,
-          todayEvents: 0,
-          urgentEvents: 0,
-          upcomingEvents: 0,
-        }
-      );
-
-      setActions(res.todayActions || []);
-      setProperties(res.properties || []);
-    } catch (error) {
-      setFetchError(
-        error instanceof Error ? error.message : "No se pudo cargar el dashboard"
-      );
-    } finally {
-      setLoading(false);
+    if (!currentSession) {
+      router.replace("/login");
+      return;
     }
+
+    const userId: string = currentSession.id;
+    const userRole: string = currentSession.rol;
+
+    setSession(currentSession);
+
+    async function loadDashboard() {
+      try {
+        setFetchError("");
+
+        const res = await getDashboardDataFromSheets(userId, userRole);
+
+        if (!res.ok) {
+          throw new Error(res.error || "No se pudo cargar el dashboard");
+        }
+
+        setSummary(
+          res.summary || {
+            totalProperties: 0,
+            todayEvents: 0,
+            urgentEvents: 0,
+            upcomingEvents: 0,
+          }
+        );
+
+        setActions(res.todayActions || []);
+      } catch (error) {
+        setFetchError(
+          error instanceof Error ? error.message : "No se pudo cargar el dashboard"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, [router]);
+
+  const greetingName = useMemo(() => {
+    if (!session?.nombre_apellido) return "";
+    return session.nombre_apellido.split(" ")[0] || session.nombre_apellido;
+  }, [session]);
+
+  if (!session) return null;
+
+  const labels = getKpiText(session.rol);
+  const currentUserName = session.nombre_apellido.trim().toLowerCase();
+
+  const myActions = actions.filter(
+    (action) => (action.assignedUserName || "").trim().toLowerCase() === currentUserName
+  );
+
+  const myActiveActions = myActions.filter((action) => !isActionExpired(action));
+  const myExpiredActions = myActions.filter((action) => isActionExpired(action));
+
+  const teamActions = actions.filter(
+    (action) => (action.assignedUserName || "").trim().toLowerCase() !== currentUserName
+  );
+
+  function renderActionCard(
+    action: DashboardAction,
+    showAssignedUser: boolean
+  ) {
+    const styles = getAlertClasses(action.alertLevel);
+
+    return (
+      <div
+        key={action.id}
+        className={`relative overflow-hidden rounded-[20px] border p-4 ${styles.card}`}
+      >
+        <div className={`absolute inset-y-0 left-0 w-1.5 ${styles.bar}`} />
+
+        <div className="ml-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[28px] font-semibold leading-none tracking-tight text-slate-900">
+              {action.time || "--:--"}
+            </span>
+
+            <span className="text-[28px] font-semibold leading-none tracking-tight text-slate-900">
+              {action.date || "-"}
+            </span>
+
+            <span
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${styles.badge}`}
+            >
+              {getTypeLabel(action.type)}
+            </span>
+          </div>
+
+          <p className="mt-3 text-[18px] font-semibold text-slate-900">
+            {action.title || "Sin título"}
+          </p>
+
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {action.description || "Sin descripción"}
+          </p>
+
+          {showAssignedUser && action.assignedUserName && (
+            <p className="mt-2 text-[13px] text-slate-500">
+              Asignado a {action.assignedUserName}
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
-  loadDashboard();
-}, [router]);
-
-const greetingName = useMemo(() => {
-  if (!session?.nombre_apellido) return "";
-  return session.nombre_apellido.split(" ")[0] || session.nombre_apellido;
-}, [session]);
-
-if (!session) return null;
-
-const labels = getKpiText(session.rol);
-const currentUserName = session.nombre_apellido.trim().toLowerCase();
-
-const myActions = actions.filter(
-  (action) => (action.assignedUserName || "").trim().toLowerCase() === currentUserName
-);
-
-const myActiveActions = myActions.filter((action) => !isActionExpired(action));
-const myExpiredActions = myActions.filter((action) => isActionExpired(action));
-
-const teamActions = actions.filter(
-  (action) => (action.assignedUserName || "").trim().toLowerCase() !== currentUserName
-);
-
-function renderActionCard(
-  action: DashboardAction,
-  showAssignedUser: boolean
-) {
-  const styles = getAlertClasses(action.alertLevel);
-
-  return (
-    <div
-      key={action.id}
-      className={`relative overflow-hidden rounded-[20px] border p-4 ${styles.card}`}
-    >
-      <div className={`absolute inset-y-0 left-0 w-1.5 ${styles.bar}`} />
-
-      <div className="ml-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[28px] font-semibold leading-none tracking-tight text-slate-900">
-            {action.time || "--:--"}
-          </span>
-
-          <span className="text-[28px] font-semibold leading-none tracking-tight text-slate-900">
-            {action.date || "-"}
-          </span>
-
-          <span
-            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${styles.badge}`}
-          >
-            {getTypeLabel(action.type)}
-          </span>
-        </div>
-
-        <p className="mt-3 text-[18px] font-semibold text-slate-900">
-          {action.title || "Sin título"}
-        </p>
-
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          {action.description || "Sin descripción"}
-        </p>
-
-        {showAssignedUser && action.assignedUserName && (
-          <p className="mt-2 text-[13px] text-slate-500">
-            Asignado a {action.assignedUserName}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function handleLogout() {
-  clearSessionUser();
-  router.replace("/login");
-}
+  function handleLogout() {
+    clearSessionUser();
+    router.replace("/login");
+  }
 
   return (
     <AppShell menu={APP_MENU}>
@@ -295,164 +289,69 @@ function handleLogout() {
           </div>
         </div>
 
-       <div className="grid gap-3 xl:grid-cols-[1.65fr_1fr]">
-  <div className="grid gap-3">
-    <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-            Agenda
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">
-            Mi agenda
-          </h2>
-        </div>
-
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
-          {loading ? "Cargando..." : `${myActiveActions.length} acciones`}
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {!loading && myActiveActions.length === 0 ? (
-          <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-            No hay acciones vigentes para mostrar.
-          </div>
-        ) : (
-          myActiveActions.map((action) => renderActionCard(action, false))
-        )}
-
-        {!loading && myExpiredActions.length > 0 && (
-          <details className="mt-4 overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50/80">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-700">
-              Vencidos ({myExpiredActions.length})
-            </summary>
-
-            <div className="space-y-3 border-t border-slate-200 p-3">
-              {myExpiredActions.map((action) => renderActionCard(action, false))}
-            </div>
-          </details>
-        )}
-      </div>
-    </div>
-
-    <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Equipo
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                Resto del equipo
-              </h2>
-            </div>
-
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
-              {loading ? "Cargando..." : `${teamActions.length} acciones`}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {!loading && teamActions.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                No hay acciones del resto del equipo.
-              </div>
-            ) : (
-              teamActions.map((action) => renderActionCard(action, true))
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-        <div className="mb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-            Propiedades
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-900">
-            {labels.propertiesTitle}
-          </h2>
-        </div>
-
-        <div className="space-y-3">
-          {!loading && properties.length === 0 ? (
-            <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-              Sin propiedades asignadas.
-            </div>
-          ) : (
-            properties.map((property) => (
-              <div
-                key={property.id}
-                className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[16px] font-semibold text-slate-900">
-                      {property.title}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {property.location || "Ubicación no definida"}
-                    </p>
-                  </div>
-
-                  {property.operation && (
-                    <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700">
-                      {property.operation}
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-3 text-[15px] font-semibold text-slate-900">
-                  {property.price || "Precio no definido"}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+        <div className="grid gap-3 xl:grid-cols-[1.65fr_1fr]">
           <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-            <div className="mb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Propiedades
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                {labels.propertiesTitle}
-              </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Agenda
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                  Mi agenda
+                </h2>
+              </div>
+
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
+                {loading ? "Cargando..." : `${myActiveActions.length} acciones`}
+              </span>
             </div>
 
             <div className="space-y-3">
-              {!loading && properties.length === 0 ? (
+              {!loading && myActiveActions.length === 0 ? (
                 <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                  Sin propiedades asignadas.
+                  No hay acciones vigentes para mostrar.
                 </div>
               ) : (
-                properties.map((property) => (
-                  <div
-                    key={property.id}
-                    className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[16px] font-semibold text-slate-900">
-                          {property.title}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {property.location || "Ubicación no definida"}
-                        </p>
-                      </div>
+                myActiveActions.map((action) => renderActionCard(action, false))
+              )}
 
-                      {property.operation && (
-                        <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700">
-                          {property.operation}
-                        </span>
-                      )}
-                    </div>
+              {!loading && myExpiredActions.length > 0 && (
+                <details className="mt-4 overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50/80">
+                  <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-700">
+                    Vencidos ({myExpiredActions.length})
+                  </summary>
 
-                    <p className="mt-3 text-[15px] font-semibold text-slate-900">
-                      {property.price || "Precio no definido"}
-                    </p>
+                  <div className="space-y-3 border-t border-slate-200 p-3">
+                    {myExpiredActions.map((action) => renderActionCard(action, false))}
                   </div>
-                ))
+                </details>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/60 bg-white/90 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Equipo
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                  Resto del equipo
+                </h2>
+              </div>
+
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[12px] font-medium text-slate-600">
+                {loading ? "Cargando..." : `${teamActions.length} acciones`}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {!loading && teamActions.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+                  No hay acciones del resto del equipo.
+                </div>
+              ) : (
+                teamActions.map((action) => renderActionCard(action, true))
               )}
             </div>
           </div>
