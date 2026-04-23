@@ -77,23 +77,27 @@ function getKpiText(role: string) {
         propertiesTitle: "Mis propiedades asignadas",
       };
 }
-function parseActionDateTime(action: DashboardAction) {
-  if (!action.date) return null;
+function normalizeDateOnly(value?: string | null) {
+  if (!value) return null;
 
-  const datePart = action.date.trim();
-  const timePart =
-    action.time && /^\d{2}:\d{2}$/.test(action.time.trim())
-      ? action.time.trim()
-      : "23:59";
+  const trimmed = value.trim();
+  if (!trimmed) return null;
 
-  const parsed = new Date(`${datePart}T${timePart}:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const parsed = new Date(`${trimmed}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
 }
 
 function isActionExpired(action: DashboardAction) {
-  const actionDate = parseActionDateTime(action);
+  const actionDate = normalizeDateOnly(action.date);
   if (!actionDate) return false;
-  return actionDate.getTime() < Date.now();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return actionDate.getTime() < today.getTime();
 }
 
 export default function HomePage() {
