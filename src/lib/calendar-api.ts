@@ -60,6 +60,57 @@ export type DashboardSummary = {
   upcomingEvents: number;
 };
 
+export type PropertyBoardStatus =
+  | "Asignada"
+  | "Visita coordinada"
+  | "Visitada"
+  | "Finalizada";
+
+export type PropertyItem = {
+  id: string;
+  codigo: string;
+  titulo_interno: string;
+  tipo_propiedad: string;
+  operacion: string;
+  estado_interno: string;
+  estado_publicacion: string;
+  publicar_web: string;
+  destacada: string;
+  slug: string;
+  fecha_alta: string;
+  fecha_actualizacion: string;
+  usuario_asignado_id: string;
+  usuario_asignado_nombre?: string;
+  propietario_id: string;
+  comentarios_internos: string;
+  pais: string;
+  provincia: string;
+  ciudad: string;
+  zona: string;
+  barrio: string;
+  direccion: string;
+  precio: string;
+  moneda: string;
+  observaciones_comerciales: string;
+  m2: string;
+  m2_cubiertos: string;
+  ambientes: string;
+  dormitorios: string;
+  banos: string;
+  cochera: string;
+  titulo_publico: string;
+  subtitulo_publico: string;
+  descripcion_corta: string;
+  descripcion_larga: string;
+  estado_tablero: PropertyBoardStatus | string;
+  comentario_cierre: string;
+  activo: boolean | string;
+  updated_at: string;
+  deleted_at: string;
+};
+
+export type PropertyPayload = Partial<PropertyItem>;
+
 export async function loginWithSheets(usuario: string, clave: string): Promise<{
   ok: boolean;
   user?: SheetsUser;
@@ -230,6 +281,92 @@ export async function deleteEventInSheets(id: string) {
     body: JSON.stringify({
       action: "deleteEvent",
       payload: { id },
+    }),
+  });
+
+  return await res.json();
+}
+
+export async function listPropertiesFromSheets(
+  userId: string,
+  role: string
+): Promise<{
+  ok: boolean;
+  properties?: PropertyItem[];
+  error?: string;
+}> {
+  const url = `${API_URL}?action=listProperties&userId=${encodeURIComponent(
+    userId
+  )}&role=${encodeURIComponent(role)}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  return await res.json();
+}
+
+export async function createPropertyInSheets(payload: PropertyPayload) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "createProperty",
+      payload,
+    }),
+  });
+
+  return await res.json();
+}
+
+export async function updatePropertyInSheets(
+  payload: PropertyPayload & { id: string }
+) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "updateProperty",
+      payload,
+    }),
+  });
+
+  return await res.json();
+}
+
+export async function deletePropertyInSheets(id: string) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "deleteProperty",
+      payload: { id },
+    }),
+  });
+
+  return await res.json();
+}
+
+export async function updatePropertyBoardStatusInSheets(payload: {
+  id: string;
+  estado_tablero: PropertyBoardStatus | string;
+  comentario_cierre?: string;
+}) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      action: "updatePropertyBoardStatus",
+      payload,
     }),
   });
 
