@@ -119,35 +119,42 @@ function BoardModal({
       className="fixed inset-0 z-[150] bg-slate-950/45 backdrop-blur-[1px]"
       onClick={onClose}
     >
-      <div className="flex min-h-full items-center justify-center p-3 md:p-6">
+      <div className="flex min-h-full items-center justify-center p-2 md:p-6">
         <div
           onClick={(e) => e.stopPropagation()}
-          className="grid w-full max-w-7xl grid-rows-[auto,minmax(0,1fr)] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] max-h-[92dvh]"
+          className="flex h-[92dvh] w-full max-w-7xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 md:px-6">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Propiedades
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900 md:text-xl">
-                Tablero
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Desktop: arrastrá tarjetas entre columnas. Mobile: seguí usando el selector.
-              </p>
-            </div>
+          <div className="shrink-0 border-b border-slate-200 px-4 py-4 md:px-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Propiedades
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900 md:text-xl">
+                  Tablero
+                </h2>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
-            >
-              ✕
-            </button>
+                <p className="mt-1 hidden text-sm text-slate-500 md:block">
+                  Desktop: arrastrá tarjetas entre columnas. Mobile: seguí usando el selector.
+                </p>
+
+                <p className="mt-1 text-sm text-slate-500 md:hidden">
+                  Estado de propiedades asignadas.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          <div className="min-h-0 overflow-auto p-4 md:p-6">
-            <div className="grid min-w-[1080px] gap-4 xl:grid-cols-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-6">
+            <div className="grid gap-3 md:min-w-[1080px] md:grid-cols-4">
               {BOARD_COLUMNS.map((column) => {
                 const isActiveDrop = activeColumn === column;
 
@@ -155,6 +162,7 @@ function BoardModal({
                   <div
                     key={column}
                     onDragOver={(e) => {
+                      if (window.innerWidth < 768) return;
                       e.preventDefault();
                       setActiveColumn(column);
                     }}
@@ -162,7 +170,7 @@ function BoardModal({
                       if (activeColumn === column) setActiveColumn(null);
                     }}
                     onDrop={() => handleDrop(column)}
-                    className={`rounded-[24px] border p-3.5 transition ${
+                    className={`rounded-[24px] border p-3 transition ${
                       isActiveDrop
                         ? "border-blue-300 bg-blue-50/70"
                         : "border-slate-200 bg-slate-50/70"
@@ -179,7 +187,7 @@ function BoardModal({
                       {(boardData[column] || []).map((property) => (
                         <div
                           key={property.id}
-                          draggable
+                          draggable={typeof window !== "undefined" ? window.innerWidth >= 768 : true}
                           onDragStart={() => {
                             setDraggedPropertyId(property.id);
                             setActiveColumn(null);
@@ -195,12 +203,15 @@ function BoardModal({
                           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                             {property.codigo || "SIN CÓDIGO"}
                           </p>
-                          <h4 className="mt-1 text-[15px] font-semibold text-slate-900">
+
+                          <h4 className="mt-1 text-[15px] font-semibold leading-tight text-slate-900">
                             {property.titulo_interno || "Sin título"}
                           </h4>
+
                           <p className="mt-1 text-[12px] text-slate-500">
                             {property.usuario_asignado_nombre || "Sin asignar"}
                           </p>
+
                           <p className="mt-2 text-[13px] text-slate-700">
                             {[property.ciudad, property.zona].filter(Boolean).join(" · ") || "Sin ubicación"}
                           </p>
